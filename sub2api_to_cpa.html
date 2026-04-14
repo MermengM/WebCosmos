@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account JSON Converter</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #0f766e;
+            --primary-hover: #0b5f58;
+            --border: #d1d5db;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: radial-gradient(circle at top left, #e9f8f6 0%, #f5f7fb 40%, #f8fafc 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        .head {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(90deg, #e6fffb 0%, #f8fffe 100%);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .sub {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            padding: 16px;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 340px;
+            resize: vertical;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            font-family: Consolas, "Courier New", monospace;
+            background: #fbfdff;
+            color: #0f172a;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            padding: 0 16px 16px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            color: #fff;
+            background: var(--primary);
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button.secondary {
+            background: #4b5563;
+        }
+
+        button.secondary:hover {
+            background: #374151;
+        }
+
+        .status {
+            padding: 0 16px 18px;
+            font-size: 13px;
+            color: var(--muted);
+            min-height: 18px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="wrap">
+        <section class="head">
+            <h1>Account JSON to Token JSON</h1>
+            <div class="sub">Paste source JSON with accounts, then convert and download.</div>
+        </section>
+
+        <section class="grid">
+            <div class="panel">
+                <label for="inputJson">Source JSON</label>
+                <textarea id="inputJson" placeholder="Paste JSON here..."></textarea>
+            </div>
+
+            <div class="panel">
+                <label for="outputJson">Converted JSON</label>
+                <textarea id="outputJson" readonly placeholder="Converted result will appear here..."></textarea>
+            </div>
+        </section>
+
+        <section class="actions">
+            <button id="convertBtn" type="button">Convert</button>
+            <button id="downloadBtn" type="button" class="secondary">Download ZIP</button>
+        </section>
+
+        <div class="status" id="status"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script>
+        const inputEl = document.getElementById("inputJson");
+        const outputEl = document.getElementById("outputJson");
+        const statusEl = document.getElementById("status");
+        const convertBtn = document.getElementById("convertBtn");
+        const downloadBtn = document.getElementById("downloadBtn");
+
+        let convertedItems = [];
+
+        function setStatus(text, isError = false) {
+            statusEl.textContent = text;
+            statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+        }
+
+        function safeDateToZ(dateStr) {
+            if (!dateStr) {
+                return "";
+            }
+            const d = new Date(dateStr);
+            if (Number.isNaN(d.getTime())) {
+                return "";
+            }
+            return d.toISOString().replace(".000Z", "Z");
+        }
+
+        function normalizeEmailForFile(email) {
+            return String(email || "unknown").trim().replace(/@/g, "_").replace(/[^a-zA-Z0-9._-]/g, "_");
+        }
+
+        function extractProxyNumber(proxyKey) {
+            const key = String(proxyKey || "");
+            const segments = key.split("|").map(part => part.trim()).filter(Boolean);
+            const pureNumericSegments = segments.filter(part => /^\d+$/.test(part));
+            if (pureNumericSegments.length) {
+                return pureNumericSegments[pureNumericSegments.length - 1];
+            }
+
+            const allMatches = key.match(/\d+/g);
+            if (!allMatches || !allMatches.length) {
+                return "";
+            }
+
+            allMatches.sort((a, b) => b.length - a.length);
+            return allMatches[0];
+        }
+
+        function pickAccountObjects(source) {
+            if (Array.isArray(source)) {
+                return source.filter(item => item && typeof item === "object");
+            }
+            if (source && Array.isArray(source.accounts)) {
+                return source.accounts.filter(item => item && typeof item === "object");
+            }
+            if (source && source.credentials) {
+                return [source];
+            }
+            return [];
+        }
+
+        function convertOneAccount(account) {
+            const credentials = account.credentials || {};
+            const tokenVersion = Number(credentials._token_version || Date.now());
+            const tokenEpoch = Number.isFinite(tokenVersion) ? Math.floor(tokenVersion / 1000) : Math.floor(Date.now() / 1000);
+
+            const email = credentials.email || account.name || "";
+            const output = {
+                id_token: credentials.id_token || "",
+                refresh_token: credentials.refresh_token || "",
+                account_id: credentials.chatgpt_account_id || credentials.account_id || "",
+                last_refresh: new Date(tokenEpoch * 1000).toISOString().replace(".000Z", "Z"),
+                email: email,
+                type: "codex",
+                expired: safeDateToZ(credentials.expires_at)
+            };
+
+            const proxyPrefix = extractProxyNumber(account.proxy_key) || "token";
+            const filename = proxyPrefix + "_" + normalizeEmailForFile(email) + "_" + tokenEpoch + ".json";
+
+            return { output, filename };
+        }
+
+        function convertSource(raw) {
+            const parsed = JSON.parse(raw);
+            const accounts = pickAccountObjects(parsed);
+            if (!accounts.length) {
+                throw new Error("No account object found. Expected object.accounts[] or direct account object.");
+            }
+
+            return accounts.map(convertOneAccount);
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            URL.revokeObjectURL(url);
+        }
+
+        function runConvert() {
+            const raw = inputEl.value.trim();
+            if (!raw) {
+                setStatus("Please paste source JSON first.", true);
+                return;
+            }
+
+            try {
+                const results = convertSource(raw);
+                convertedItems = results;
+                const outputValue = results.length === 1 ? results[0].output : results.map(item => item.output);
+                outputEl.value = JSON.stringify(outputValue, null, 2);
+                setStatus("Converted " + results.length + " account(s). Click Download ZIP to save as one archive.");
+            } catch (err) {
+                convertedItems = [];
+                outputEl.value = "";
+                setStatus("Convert failed: " + err.message, true);
+            }
+        }
+
+        async function downloadJson() {
+            if (!convertedItems.length) {
+                setStatus("Please convert first before downloading.", true);
+                return;
+            }
+
+            if (typeof JSZip === "undefined") {
+                setStatus("JSZip failed to load. Please check network and retry.", true);
+                return;
+            }
+
+            try {
+                setStatus("Packaging " + convertedItems.length + " files into ZIP...");
+                const zip = new JSZip();
+                convertedItems.forEach(item => {
+                    zip.file(item.filename, JSON.stringify(item.output, null, 2));
+                });
+
+                const now = new Date();
+                const zipName = "tokens_" + now.toISOString().replace(/[:.]/g, "-") + ".zip";
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+                downloadBlob(zipBlob, zipName);
+                setStatus("Downloaded ZIP: " + zipName + " (" + convertedItems.length + " files)");
+            } catch (err) {
+                setStatus("ZIP creation failed: " + err.message, true);
+            }
+        }
+
+        convertBtn.addEventListener("click", runConvert);
+        downloadBtn.addEventListener("click", downloadJson);
+    </script>
+</body>
+
+</html>
