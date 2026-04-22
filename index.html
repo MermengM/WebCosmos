@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebCosmos</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    header {
+      text-align: center;
+      padding: 60px 20px 40px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #f0f6fc;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      font-size: 1.1rem;
+      color: #8b949e;
+    }
+
+    .grid {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card:hover {
+      border-color: #58a6ff;
+      transform: translateY(-2px);
+    }
+
+    .card h2 {
+      font-size: 1.15rem;
+      color: #58a6ff;
+      font-weight: 600;
+    }
+
+    .card p {
+      font-size: 0.9rem;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    .card .arrow {
+      margin-top: auto;
+      color: #484f58;
+      font-size: 0.8rem;
+      align-self: flex-end;
+    }
+
+    .empty {
+      text-align: center;
+      color: #484f58;
+      padding: 80px 20px;
+      font-size: 1rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #30363d;
+      font-size: 0.8rem;
+    }
+
+    footer a {
+      color: #8b949e;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: #58a6ff;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>WebCosmos</h1>
+    <p>静态工具集</p>
+  </header>
+
+  <div class="grid" id="toolGrid"></div>
+
+  <footer>
+
+    <a href="https://github.com/MermengM/WebCosmos" target="_blank" rel="noopener noreferrer">WebCosmos</a>
+  </footer>
+
+  <script>
+    // ===== 工具配置 =====
+    // 新增工具：在此数组中添加对象即可
+    // visible: true 显示 / false 隐藏
+    const tools = [
+      {
+        name: 'Account JSON 转换器',
+        description: '将订阅账户 JSON 转为 Token JSON，支持批量 ZIP 下载',
+        file: 'sub2api_to_cpa.html',
+        visible: true
+      },
+      {
+        name: '文本对比',
+        description: '基于 Monaco Editor 的文本差异对比工具，支持文件拖放和多种语言高亮',
+        file: 'text_compare.html',
+        visible: true
+      }
+    ];
+    // ===== 配置结束 =====
+
+    const grid = document.getElementById('toolGrid');
+    const visibleTools = tools.filter(t => t.visible);
+
+    if (visibleTools.length === 0) {
+      grid.innerHTML = '<p class="empty">暂无可用工具</p>';
+    } else {
+      visibleTools.forEach(tool => {
+        const a = document.createElement('a');
+        a.className = 'card';
+        a.href = tool.file;
+        a.innerHTML = `<h2>${tool.name}</h2><p>${tool.description}</p><span class="arrow">→</span>`;
+        grid.appendChild(a);
+      });
+    }
+  </script>
+</body>
+
+</html>

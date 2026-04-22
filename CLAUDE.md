@@ -4,19 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-WebCosmos 是一个以**静态 HTML** 为主的小工具集合仓库。每个工具是独立 HTML 文件，内嵌 CSS 和 JS，浏览器直接打开即可使用，无需构建流程。
+WebCosmos 是一个以**静态 HTML** 为主的小工具集合仓库。每个工具是独立 HTML 文件，内嵌 CSS 和 JS，浏览器直接打开即可使用，无需构建流程。通过 GitHub Pages 部署。
 
 ## 仓库结构
 
-- 根目录放 HTML 工具文件（如 `sub2api_to_cpa.html`）
-- `Python/` 放 Python 脚本（当前有一个 API 压测脚本）
+- `index.html` — 主页，工具导航入口，控制各工具的显示/隐藏
+- 根目录放 HTML 工具文件（如 `sub2api_to_cpa.html`、`text_compare.html`）
+- `Python/` 放 Python 脚本
 - `Python/.venv/` 是 Python 虚拟环境，已加入 `.gitignore`
 
 ## 开发约定
 
-- **HTML 工具**：单文件架构，所有 CSS/JS 内联，外部依赖用 CDN（如 JSZip）。每个工具自包含，不拆分文件
+- **HTML 工具**：单文件架构，所有 CSS/JS 内联，外部依赖用 CDN。每个工具自包含，不拆分文件
+- **新增工具流程**：
+  1. 创建独立 HTML 文件
+  2. 在 `index.html` 的 `tools` 数组中添加条目（设置 `name`、`description`、`file`、`visible`）
+  3. 在 `readme.md` 目录表中添加条目
+- **显示控制**：修改 `index.html` 中 `tools` 数组里对应工具的 `visible` 字段（`true`/`false`）
 - **Python 脚本**：放在 `Python/` 目录下，依赖通过 `.venv` 管理
-- 新增工具后在 `readme.md` 的目录表中添加条目
 
 ## 常用命令
 
