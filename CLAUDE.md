@@ -21,21 +21,11 @@ WebCosmos 是一个以**静态 HTML** 为主的小工具集合仓库。每个工
   2. 在 `index.html` 的 `tools` 数组中添加条目（设置 `name`、`description`、`file`、`visible`）
   3. 在 `readme.md` 目录表中添加条目
 - **显示控制**：修改 `index.html` 中 `tools` 数组里对应工具的 `visible` 字段（`true`/`false`）
-- **Python 脚本**：放在 `Python/` 目录下，依赖通过 `.venv` 管理
 
 ## 常用命令
 
 无构建/测试/lint 流程。HTML 文件直接用浏览器打开。
 
-Python 压测脚本运行方式：
-```bash
-cd Python
-# 激活虚拟环境后
-python codex_stress_test.py
-# 脚本配置（base_url、api_key、model 等）直接硬编码在 __main__ 块中
-```
 
 ## 技术栈
-
 - HTML 工具：原生 HTML5 + CSS3 + ES6+ JS，CDN 引入 JSZip v3.10.1
-- Python 脚本：requests、openai SDK，用 ThreadPoolExecutor 做并发压测
