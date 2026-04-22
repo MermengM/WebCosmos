@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本对比</title>
+    <!-- jsdiff 在 Monaco loader 之前加载，避免 AMD 模块冲突 -->
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1440px; margin: 0 auto; padding: 20px; }
+
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 28px 32px;
+            text-align: center;
+        }
+        .header h1 { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+        .header p  { font-size: 14px; opacity: 0.85; }
+
+        /* 主工具栏 */
+        .main-toolbar {
+            background: #fff;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .checkbox-label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; cursor: pointer; user-select: none;
+        }
+        .checkbox-label input {
+            width: 15px; height: 15px; accent-color: #667eea; cursor: pointer;
+        }
+        .toolbar-btns { display: flex; gap: 8px; }
+
+        /* 按钮 */
+        .btn {
+            padding: 6px 16px; border: 1px solid #d9d9d9; border-radius: 6px;
+            background: #fff; color: #333; font-size: 13px; cursor: pointer;
+            transition: all 0.15s ease; line-height: 1.5; white-space: nowrap;
+        }
+        .btn:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn-primary:hover { background: #5568d3; border-color: #5568d3; }
+        .btn-sm { padding: 3px 10px; font-size: 12px; border-radius: 4px; }
+
+        /* 统计栏 */
+        .stats-bar {
+            background: #fafbfc; padding: 8px 20px;
+            border-bottom: 1px solid #eaeaea;
+            font-size: 13px; color: #888;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .stat-added   { color: #52c41a; font-weight: 500; }
+        .stat-removed { color: #ff4d4f; font-weight: 500; }
+        .stat-modified{ color: #faad14; font-weight: 500; }
+        .stat-dot     { color: #d9d9d9; margin: 0 4px; }
+
+        /* 面板工具栏 */
+        .panel-toolbars { display: flex; border-bottom: 1px solid #eaeaea; }
+        .panel-toolbar {
+            flex: 1; display: flex; align-items: center;
+            justify-content: space-between; padding: 7px 14px;
+            background: #fafbfc;
+        }
+        .panel-toolbar:first-child { border-right: 1px solid #eaeaea; }
+        .panel-title { font-size: 13px; font-weight: 600; color: #555; }
+        .panel-btns  { display: flex; gap: 5px; }
+        .btn-edit.active { background: #e8f4ff; color: #667eea; border-color: #b3d4ff; }
+
+        /* 编辑器 */
+        .editor-container {
+            height: calc(100vh - 260px);
+            min-height: 350px;
+            position: relative;
+        }
+        .editor-container.drag-over::after {
+            content: "拖放文件到此处";
+            position: absolute; inset: 0;
+            background: rgba(102, 126, 234, 0.08);
+            border: 3px dashed #667eea;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: #667eea; z-index: 10; pointer-events: none;
+        }
+
+        /* 加载 / 错误状态 */
+        .loading-state {
+            display: flex; align-items: center; justify-content: center;
+            height: 100%; min-height: 350px; color: #999; font-size: 15px; gap: 10px;
+        }
+        .spinner {
+            width: 22px; height: 22px;
+            border: 3px solid #e0e0e0; border-top-color: #667eea;
+            border-radius: 50%; animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-state {
+            display: flex; align-items: center; justify-content: center;
+            height: 100%; min-height: 350px; color: #ff4d4f; font-size: 14px;
+            background: #fff2f0; padding: 20px; text-align: center;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(0,0,0,0.72); color: #fff;
+            padding: 10px 24px; border-radius: 8px; font-size: 14px;
+            opacity: 0; transition: all 0.25s ease;
+            z-index: 9999; pointer-events: none; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .header { padding: 20px 16px; }
+            .header h1 { font-size: 20px; }
+            .main-toolbar { flex-direction: column; gap: 8px; align-items: stretch; }
+            .toolbar-btns { justify-content: flex-end; }
+            .panel-toolbars { flex-direction: column; }
+            .panel-toolbar:first-child { border-right: none; border-bottom: 1px solid #eaeaea; }
+            .editor-container { height: calc(100vh - 340px); min-height: 280px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <!-- 头部 -->
+            <div class="header">
+                <h1>文本对比</h1>
+                <p>轻松对比两个文本文件的差异</p>
+            </div>
+
+            <!-- 主工具栏 -->
+            <div class="main-toolbar">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="autoCompare" checked>
+                    自动执行
+                </label>
+                <div class="toolbar-btns">
+                    <button class="btn" id="clearAllBtn">清空</button>
+                    <button class="btn" id="swapBtn">交换文本</button>
+                    <button class="btn btn-primary" id="recompareBtn">重新对比</button>
+                </div>
+            </div>
+
+            <!-- 统计栏 -->
+            <div class="stats-bar" id="statsBar">
+                差异统计：<span class="stat-added">新增 0 处</span><span class="stat-dot">·</span><span class="stat-removed">删除 0 处</span><span class="stat-dot">·</span><span class="stat-modified">修改 0 处</span>
+            </div>
+
+            <!-- 面板工具栏 -->
+            <div class="panel-toolbars">
+                <div class="panel-toolbar">
+                    <span class="panel-title">左侧</span>
+                    <div class="panel-btns">
+                        <button class="btn btn-sm" onclick="openFile('original')">打开文件</button>
+                        <button class="btn btn-sm" onclick="clearSide('original')">清空</button>
+                        <button class="btn btn-sm" onclick="copySide('original')">复制</button>
+                        <button class="btn btn-sm btn-edit active" id="editOriginal" onclick="toggleEdit('original')">编辑</button>
+                    </div>
+                </div>
+                <div class="panel-toolbar">
+                    <span class="panel-title">右侧</span>
+                    <div class="panel-btns">
+                        <button class="btn btn-sm" onclick="openFile('modified')">打开文件</button>
+                        <button class="btn btn-sm" onclick="clearSide('modified')">清空</button>
+                        <button class="btn btn-sm" onclick="copySide('modified')">复制</button>
+                        <button class="btn btn-sm btn-edit active" id="editModified" onclick="toggleEdit('modified')">编辑</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 编辑器 -->
+            <div class="editor-container" id="editorContainer">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <span>正在加载编辑器...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏文件输入 -->
+    <input type="file" id="fileInput" hidden>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* ========== 状态 ========== */
+        var diffEditor = null;
+        var originalModel = null;
+        var modifiedModel = null;
+        var autoCompare = true;
+        var currentFileSide = null;
+        var editState = { original: true, modified: true };
+
+        /* ========== 示例文本 ========== */
+        var SAMPLE_ORIGINAL = [
+            '# 项目配置文件',
+            'version: 2.0',
+            'name: WebCosmos',
+            'author: Developer',
+            'description: A collection of web tools',
+            '',
+            'features:',
+            '  - 文本对比',
+            '  - 文件转换',
+            '  - 批量处理',
+            '',
+            'database:',
+            '  host: localhost',
+            '  port: 3306',
+            '  name: webcosmos_db',
+            '',
+            'server:',
+            '  debug: true',
+            '  workers: 1'
+        ].join('\n');
+
+        var SAMPLE_MODIFIED = [
+            '# 项目配置文件',
+            'version: 3.0',
+            'name: WebCosmos Pro',
+            'author: Developer Team',
+            'description: A comprehensive collection of web tools',
+            'license: MIT',
+            '',
+            'features:',
+            '  - 文本对比',
+            '  - 文件转换',
+            '  - 批量处理',
+            '  - 代码格式化',
+            '  - JSON 校验',
+            '',
+            'database:',
+            '  host: 192.168.1.100',
+            '  port: 3306',
+            '  name: webcosmos_prod',
+            '  pool_size: 10',
+            '',
+            'server:',
+            '  debug: false',
+            '  workers: 4',
+            '  cache_enabled: true'
+        ].join('\n');
+
+        /* ========== 工具函数 ========== */
+
+        function debounce(fn, delay) {
+            var timer = null;
+            return function () {
+                var args = arguments, ctx = this;
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(function () { fn.apply(ctx, args); }, delay);
+            };
+        }
+
+        function showToast(msg) {
+            var el = document.createElement('div');
+            el.className = 'toast';
+            el.textContent = msg;
+            document.body.appendChild(el);
+            requestAnimationFrame(function () { el.classList.add('show'); });
+            setTimeout(function () {
+                el.classList.remove('show');
+                setTimeout(function () { el.remove(); }, 300);
+            }, 2000);
+        }
+
+        function getLanguage(filename) {
+            var ext = (filename || '').split('.').pop().toLowerCase();
+            var map = {
+                js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+                py: 'python', java: 'java', json: 'json', html: 'html', htm: 'html',
+                css: 'css', scss: 'scss', less: 'less', xml: 'xml', svg: 'xml',
+                md: 'markdown', yaml: 'yaml', yml: 'yaml', sql: 'sql',
+                sh: 'shell', bash: 'shell', bat: 'bat', ps1: 'powershell',
+                go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp',
+                php: 'php', rb: 'ruby', vue: 'html', dart: 'dart',
+                kt: 'kotlin', swift: 'swift', ini: 'ini', toml: 'ini',
+                cfg: 'ini', conf: 'ini'
+            };
+            return map[ext] || 'plaintext';
+        }
+
+        /* ========== 差异统计 ========== */
+
+        function computeStats(orig, mod) {
+            if (!orig && !mod) return { added: 0, removed: 0, modified: 0 };
+            if (typeof Diff === 'undefined' || !Diff.diffLines) {
+                return { added: 0, removed: 0, modified: 0 };
+            }
+            var changes;
+            try { changes = Diff.diffLines(orig, mod); }
+            catch (e) { return { added: 0, removed: 0, modified: 0 }; }
+
+            var added = 0, removed = 0, modified = 0;
+            for (var i = 0; i < changes.length; i++) {
+                var c = changes[i], cnt = c.count || 0;
+                if (c.removed && i + 1 < changes.length && changes[i + 1].added) {
+                    var next = changes[i + 1].count || 0;
+                    var min = Math.min(cnt, next);
+                    modified += min;
+                    added += next - min;
+                    removed += cnt - min;
+                    i++;
+                } else if (c.added) {
+                    added += cnt;
+                } else if (c.removed) {
+                    removed += cnt;
+                }
+            }
+            return { added: added, removed: removed, modified: modified };
+        }
+
+        function updateStats() {
+            if (!originalModel || !modifiedModel) return;
+            var s = computeStats(originalModel.getValue(), modifiedModel.getValue());
+            document.getElementById('statsBar').innerHTML =
+                '差异统计：<span class="stat-added">新增 ' + s.added + ' 处</span>' +
+                '<span class="stat-dot">·</span>' +
+                '<span class="stat-removed">删除 ' + s.removed + ' 处</span>' +
+                '<span class="stat-dot">·</span>' +
+                '<span class="stat-modified">修改 ' + s.modified + ' 处</span>';
+        }
+
+        var debouncedUpdateStats = debounce(function () {
+            if (autoCompare) updateStats();
+        }, 400);
+
+        /* ========== Monaco 初始化 ========== */
+
+        function initMonaco() {
+            require.config({
+                paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }
+            });
+
+            var loadTimer = setTimeout(function () {
+                if (!diffEditor) {
+                    document.getElementById('editorContainer').innerHTML =
+                        '<div class="error-state">编辑器加载超时，请检查网络连接后刷新页面。</div>';
+                }
+            }, 30000);
+
+            require(['vs/editor/editor.main'], function () {
+                clearTimeout(loadTimer);
+                createEditor();
+            });
+        }
+
+        function createEditor() {
+            var container = document.getElementById('editorContainer');
+            container.innerHTML = '';
+
+            var isNarrow = window.innerWidth < 768;
+
+            diffEditor = monaco.editor.createDiffEditor(container, {
+                renderSideBySide: !isNarrow,
+                originalEditable: true,
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                lineNumbers: 'on',
+                minimap: { enabled: false },
+                theme: 'vs',
+                wordWrap: 'on',
+                folding: true,
+                renderLineHighlight: 'all',
+                enableSplitViewResizing: true,
+                ignoreTrimWhitespace: false,
+                maxComputationTime: 5000
+            });
+
+            originalModel = monaco.editor.createModel(SAMPLE_ORIGINAL, 'yaml');
+            modifiedModel = monaco.editor.createModel(SAMPLE_MODIFIED, 'yaml');
+            diffEditor.setModel({ original: originalModel, modified: modifiedModel });
+
+            originalModel.onDidChangeContent(debouncedUpdateStats);
+            modifiedModel.onDidChangeContent(debouncedUpdateStats);
+
+            setTimeout(updateStats, 600);
+            setupDragDrop();
+            setupFileInput();
+            setupToolbar();
+        }
+
+        /* ========== 拖放支持 ========== */
+
+        function setupDragDrop() {
+            var el = document.getElementById('editorContainer');
+            var dragCount = 0;
+
+            el.addEventListener('dragenter', function (e) {
+                e.preventDefault(); dragCount++;
+                el.classList.add('drag-over');
+            });
+            el.addEventListener('dragleave', function () {
+                if (--dragCount <= 0) { dragCount = 0; el.classList.remove('drag-over'); }
+            });
+            el.addEventListener('dragover', function (e) { e.preventDefault(); });
+            el.addEventListener('drop', function (e) {
+                e.preventDefault(); dragCount = 0;
+                el.classList.remove('drag-over');
+                var file = e.dataTransfer.files[0];
+                if (!file) return;
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('文件过大，建议不超过 10MB'); return;
+                }
+                var rect = el.getBoundingClientRect();
+                var side = (e.clientX - rect.left) < rect.width / 2 ? 'original' : 'modified';
+                loadFile(file, side);
+            });
+        }
+
+        /* ========== 文件操作 ========== */
+
+        function loadFile(file, side) {
+            var reader = new FileReader();
+            reader.onload = function (ev) {
+                var model = side === 'original' ? originalModel : modifiedModel;
+                monaco.editor.setModelLanguage(model, getLanguage(file.name));
+                model.setValue(ev.target.result);
+                showToast('已加载：' + file.name);
+            };
+            reader.onerror = function () { showToast('文件读取失败'); };
+            reader.readAsText(file);
+        }
+
+        function setupFileInput() {
+            document.getElementById('fileInput').addEventListener('change', function (e) {
+                var file = e.target.files[0];
+                if (file && currentFileSide) loadFile(file, currentFileSide);
+                e.target.value = '';
+            });
+        }
+
+        window.openFile = function (side) {
+            currentFileSide = side;
+            document.getElementById('fileInput').click();
+        };
+
+        /* ========== 侧边操作 ========== */
+
+        window.clearSide = function (side) {
+            (side === 'original' ? originalModel : modifiedModel).setValue('');
+            showToast((side === 'original' ? '左侧' : '右侧') + '已清空');
+        };
+
+        window.copySide = function (side) {
+            var text = (side === 'original' ? originalModel : modifiedModel).getValue();
+            if (!text) { showToast('内容为空'); return; }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(
+                    function () { showToast('已复制到剪贴板'); },
+                    function () { fallbackCopy(text); }
+                );
+            } else {
+                fallbackCopy(text);
+            }
+        };
+
+        function fallbackCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); showToast('已复制到剪贴板'); }
+            catch (e) { showToast('复制失败，请手动复制'); }
+            document.body.removeChild(ta);
+        }
+
+        window.toggleEdit = function (side) {
+            editState[side] = !editState[side];
+            var editor = side === 'original'
+                ? diffEditor.getOriginalEditor()
+                : diffEditor.getModifiedEditor();
+            editor.updateOptions({ readOnly: !editState[side] });
+            var btn = document.getElementById(side === 'original' ? 'editOriginal' : 'editModified');
+            btn.classList.toggle('active', editState[side]);
+            btn.textContent = editState[side] ? '编辑' : '只读';
+        };
+
+        /* ========== 工具栏事件 ========== */
+
+        function setupToolbar() {
+            document.getElementById('autoCompare').addEventListener('change', function (e) {
+                autoCompare = e.target.checked;
+                if (autoCompare) updateStats();
+            });
+
+            document.getElementById('clearAllBtn').addEventListener('click', function () {
+                originalModel.setValue('');
+                modifiedModel.setValue('');
+                showToast('已清空所有内容');
+            });
+
+            document.getElementById('swapBtn').addEventListener('click', function () {
+                var o = originalModel.getValue(), m = modifiedModel.getValue();
+                originalModel.setValue(m);
+                modifiedModel.setValue(o);
+                showToast('已交换左右内容');
+            });
+
+            document.getElementById('recompareBtn').addEventListener('click', function () {
+                updateStats();
+                showToast('已重新对比');
+            });
+        }
+
+        /* ========== 响应式布局 ========== */
+
+        window.addEventListener('resize', debounce(function () {
+            if (diffEditor) {
+                diffEditor.updateOptions({ renderSideBySide: window.innerWidth >= 768 });
+            }
+        }, 200));
+
+        /* ========== 启动 ========== */
+        initMonaco();
+
+    })();
+    </script>
+</body>
+</html>
