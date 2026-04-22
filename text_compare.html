@@ -76,6 +76,106 @@
         .stat-modified{ color: #faad14; font-weight: 500; }
         .stat-dot     { color: #d9d9d9; margin: 0 4px; }
 
+        /* 差异导航栏 */
+        .diff-nav-bar {
+            background: #fff;
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #eaeaea;
+            flex-wrap: wrap;
+        }
+        .diff-nav-bar .nav-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .diff-nav-bar .nav-info {
+            font-size: 13px;
+            color: #666;
+            min-width: 60px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+        .diff-list-toggle {
+            padding: 4px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: #fff;
+            color: #333;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .diff-list-toggle:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        .diff-list-toggle.active { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn-nav {
+            padding: 4px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: #fff;
+            color: #333;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-nav:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-nav:disabled:hover { background: #fff; color: #333; border-color: #d9d9d9; }
+
+        /* 差异列表面板 */
+        .diff-list-panel {
+            background: #fafbfc;
+            border-bottom: 1px solid #eaeaea;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+        }
+        .diff-list-panel.open { display: block; }
+        .diff-list-panel .diff-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.1s;
+        }
+        .diff-list-panel .diff-item:hover { background: #e8f4ff; }
+        .diff-list-panel .diff-item.active { background: #d6e4ff; font-weight: 600; }
+        .diff-list-panel .diff-item .diff-type {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 10px;
+            min-width: 32px;
+            text-align: center;
+        }
+        .diff-type-add { background: #f6ffed; color: #389e0d; }
+        .diff-type-del { background: #fff2f0; color: #cf1322; }
+        .diff-type-mod { background: #fffbe6; color: #d48806; }
+        .diff-list-panel .diff-item .diff-line-info { color: #555; }
+        .diff-list-panel .diff-item .diff-preview {
+            color: #999;
+            margin-left: auto;
+            max-width: 50%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding-left: 12px;
+        }
+        .diff-empty-hint {
+            padding: 20px;
+            text-align: center;
+            color: #bbb;
+            font-size: 13px;
+        }
+
         /* 面板工具栏 */
         .panel-toolbars { display: flex; border-bottom: 1px solid #eaeaea; }
         .panel-toolbar {
@@ -90,8 +190,8 @@
 
         /* 编辑器 */
         .editor-container {
-            height: calc(100vh - 260px);
-            min-height: 350px;
+            height: calc(100vh - 300px);
+            min-height: 300px;
             position: relative;
         }
         .editor-container.drag-over::after {
@@ -140,7 +240,7 @@
             .toolbar-btns { justify-content: flex-end; }
             .panel-toolbars { flex-direction: column; }
             .panel-toolbar:first-child { border-right: none; border-bottom: 1px solid #eaeaea; }
-            .editor-container { height: calc(100vh - 340px); min-height: 280px; }
+            .editor-container { height: calc(100vh - 380px); min-height: 260px; }
         }
     </style>
 </head>
@@ -170,6 +270,19 @@
             <div class="stats-bar" id="statsBar">
                 差异统计：<span class="stat-added">新增 0 处</span><span class="stat-dot">·</span><span class="stat-removed">删除 0 处</span><span class="stat-dot">·</span><span class="stat-modified">修改 0 处</span>
             </div>
+
+            <!-- 差异导航栏 -->
+            <div class="diff-nav-bar">
+                <div class="nav-group">
+                    <button class="btn-nav" id="diffPrevBtn" title="上一个差异 (Shift+F7)">&#9650; 上一个</button>
+                    <span class="nav-info" id="diffNavInfo">0 / 0</span>
+                    <button class="btn-nav" id="diffNextBtn" title="下一个差异 (F7)">&#9660; 下一个</button>
+                </div>
+                <button class="diff-list-toggle" id="diffListToggle">展开差异列表</button>
+            </div>
+
+            <!-- 差异列表面板 -->
+            <div class="diff-list-panel" id="diffListPanel"></div>
 
             <!-- 面板工具栏 -->
             <div class="panel-toolbars">
@@ -402,7 +515,16 @@
             originalModel.onDidChangeContent(debouncedUpdateStats);
             modifiedModel.onDidChangeContent(debouncedUpdateStats);
 
-            setTimeout(updateStats, 600);
+            // 注入差异高亮样式
+            var style = document.createElement('style');
+            style.textContent =
+                '.current-diff-highlight { background: rgba(102, 126, 234, 0.18) !important; border-left: 3px solid #667eea !important; }' +
+                '.diff-glyph-current { background: #667eea; border-radius: 3px; margin-left: 3px; width: 4px !important; }';
+            document.head.appendChild(style);
+
+            setupDiffNav();
+            setupDiffNavModelListeners();
+            setTimeout(function () { updateStats(); updateDiffNav(); }, 600);
             setupDragDrop();
             setupFileInput();
             setupToolbar();
@@ -510,7 +632,7 @@
         function setupToolbar() {
             document.getElementById('autoCompare').addEventListener('change', function (e) {
                 autoCompare = e.target.checked;
-                if (autoCompare) updateStats();
+                if (autoCompare) { updateStats(); updateDiffNav(); }
             });
 
             document.getElementById('clearAllBtn').addEventListener('click', function () {
@@ -528,8 +650,241 @@
 
             document.getElementById('recompareBtn').addEventListener('click', function () {
                 updateStats();
+                updateDiffNav();
                 showToast('已重新对比');
             });
+        }
+
+        /* ========== 差异导航 ========== */
+
+        var diffEntries = [];   // { type:'add'|'del'|'mod', origLine, origEnd, modLine, modEnd, preview }
+        var diffCurrentIdx = -1;
+        var diffDecorations = { original: [], modified: [] };
+
+        function computeDiffEntries(orig, mod) {
+            if (!orig && !mod) return [];
+            if (typeof Diff === 'undefined' || !Diff.diffLines) return [];
+            var changes;
+            try { changes = Diff.diffLines(orig, mod); }
+            catch (e) { return []; }
+
+            var entries = [];
+            var origLine = 1, modLine = 1;
+
+            for (var i = 0; i < changes.length; i++) {
+                var c = changes[i], cnt = c.count || 0;
+                if (c.removed && i + 1 < changes.length && changes[i + 1].added) {
+                    var next = changes[i + 1];
+                    var nextCnt = next.count || 0;
+                    var min = Math.min(cnt, nextCnt);
+                    // 修改的部分
+                    entries.push({
+                        type: 'mod',
+                        origLine: origLine, origEnd: origLine + cnt - 1,
+                        modLine: modLine, modEnd: modLine + nextCnt - 1,
+                        preview: (next.value || '').split('\n')[0].substring(0, 60)
+                    });
+                    origLine += cnt;
+                    modLine += nextCnt;
+                    i++;
+                } else if (c.added) {
+                    entries.push({
+                        type: 'add',
+                        origLine: origLine, origEnd: origLine,
+                        modLine: modLine, modEnd: modLine + cnt - 1,
+                        preview: c.value.split('\n')[0].substring(0, 60)
+                    });
+                    modLine += cnt;
+                } else if (c.removed) {
+                    entries.push({
+                        type: 'del',
+                        origLine: origLine, origEnd: origLine + cnt - 1,
+                        modLine: modLine, modEnd: modLine,
+                        preview: c.value.split('\n')[0].substring(0, 60)
+                    });
+                    origLine += cnt;
+                } else {
+                    origLine += cnt;
+                    modLine += cnt;
+                }
+            }
+            return entries;
+        }
+
+        function getTypeLabel(type) {
+            return type === 'add' ? '新增' : type === 'del' ? '删除' : '修改';
+        }
+
+        function getTypeClass(type) {
+            return 'diff-type diff-type-' + type;
+        }
+
+        function updateDiffNav() {
+            if (!originalModel || !modifiedModel) return;
+            diffEntries = computeDiffEntries(originalModel.getValue(), modifiedModel.getValue());
+            diffCurrentIdx = -1;
+            updateNavUI();
+            renderDiffList();
+        }
+
+        function updateNavUI() {
+            var total = diffEntries.length;
+            var info = document.getElementById('diffNavInfo');
+            var prevBtn = document.getElementById('diffPrevBtn');
+            var nextBtn = document.getElementById('diffNextBtn');
+            if (total === 0) {
+                info.textContent = '0 / 0';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+            } else {
+                if (diffCurrentIdx < 0) diffCurrentIdx = 0;
+                info.textContent = (diffCurrentIdx + 1) + ' / ' + total;
+                prevBtn.disabled = false;
+                nextBtn.disabled = false;
+            }
+            // 更新列表中的 active 状态
+            var items = document.querySelectorAll('#diffListPanel .diff-item');
+            items.forEach(function (item, idx) {
+                item.classList.toggle('active', idx === diffCurrentIdx);
+            });
+            // 滚动列表中的 active 项到可见
+            if (diffCurrentIdx >= 0 && items[diffCurrentIdx]) {
+                items[diffCurrentIdx].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function renderDiffList() {
+            var panel = document.getElementById('diffListPanel');
+            if (diffEntries.length === 0) {
+                panel.innerHTML = '<div class="diff-empty-hint">没有发现差异</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < diffEntries.length; i++) {
+                var e = diffEntries[i];
+                var lineInfo = '';
+                if (e.type === 'add') {
+                    lineInfo = '右侧行 ' + e.modLine + (e.modEnd > e.modLine ? '-' + e.modEnd : '');
+                } else if (e.type === 'del') {
+                    lineInfo = '左侧行 ' + e.origLine + (e.origEnd > e.origLine ? '-' + e.origEnd : '');
+                } else {
+                    lineInfo = '左 ' + e.origLine + (e.origEnd > e.origLine ? '-' + e.origLine : '') +
+                        ' → 右 ' + e.modLine + (e.modEnd > e.modLine ? '-' + e.modEnd : '');
+                }
+                var preview = e.preview.replace(/</g, '&lt;').trim();
+                html += '<div class="diff-item' + (i === diffCurrentIdx ? ' active' : '') + '" data-idx="' + i + '">' +
+                    '<span class="' + getTypeClass(e.type) + '">' + getTypeLabel(e.type) + '</span>' +
+                    '<span class="diff-line-info">' + lineInfo + '</span>' +
+                    '<span class="diff-preview">' + preview + '</span>' +
+                    '</div>';
+            }
+            panel.innerHTML = html;
+            // 绑定点击事件
+            panel.querySelectorAll('.diff-item').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    jumpToDiff(parseInt(this.getAttribute('data-idx'), 10));
+                });
+            });
+        }
+
+        function jumpToDiff(idx) {
+            if (idx < 0 || idx >= diffEntries.length) return;
+            diffCurrentIdx = idx;
+            var entry = diffEntries[idx];
+            var origEditor = diffEditor.getOriginalEditor();
+            var modEditor = diffEditor.getModifiedEditor();
+
+            // 跳转到对应行
+            var revealLine = Math.max(1, Math.floor((entry.origLine + entry.origEnd) / 2));
+            origEditor.revealLineInCenter(revealLine);
+            var modRevealLine = Math.max(1, Math.floor((entry.modLine + entry.modEnd) / 2));
+            modEditor.revealLineInCenter(modRevealLine);
+
+            // 高亮当前差异
+            highlightDiff(entry);
+
+            updateNavUI();
+        }
+
+        function highlightDiff(entry) {
+            var origEditor = diffEditor.getOriginalEditor();
+            var modEditor = diffEditor.getModifiedEditor();
+
+            var origDecorations = [];
+            var modDecorations = [];
+
+            var highlightClass = 'current-diff-highlight';
+
+            if (entry.type === 'del' || entry.type === 'mod') {
+                for (var l = entry.origLine; l <= entry.origEnd; l++) {
+                    origDecorations.push({
+                        range: new monaco.Range(l, 1, l, 1),
+                        options: {
+                            isWholeLine: true,
+                            className: highlightClass,
+                            glyphMarginClassName: 'diff-glyph-current'
+                        }
+                    });
+                }
+            }
+            if (entry.type === 'add' || entry.type === 'mod') {
+                for (var l2 = entry.modLine; l2 <= entry.modEnd; l2++) {
+                    modDecorations.push({
+                        range: new monaco.Range(l2, 1, l2, 1),
+                        options: {
+                            isWholeLine: true,
+                            className: highlightClass,
+                            glyphMarginClassName: 'diff-glyph-current'
+                        }
+                    });
+                }
+            }
+
+            diffDecorations.original = origEditor.deltaDecorations(diffDecorations.original, origDecorations);
+            diffDecorations.modified = modEditor.deltaDecorations(diffDecorations.modified, modDecorations);
+        }
+
+        function setupDiffNav() {
+            document.getElementById('diffPrevBtn').addEventListener('click', function () {
+                if (diffEntries.length === 0) return;
+                diffCurrentIdx = diffCurrentIdx <= 0 ? diffEntries.length - 1 : diffCurrentIdx - 1;
+                jumpToDiff(diffCurrentIdx);
+            });
+
+            document.getElementById('diffNextBtn').addEventListener('click', function () {
+                if (diffEntries.length === 0) return;
+                diffCurrentIdx = diffCurrentIdx >= diffEntries.length - 1 ? 0 : diffCurrentIdx + 1;
+                jumpToDiff(diffCurrentIdx);
+            });
+
+            document.getElementById('diffListToggle').addEventListener('click', function () {
+                var panel = document.getElementById('diffListPanel');
+                var btn = this;
+                panel.classList.toggle('open');
+                btn.textContent = panel.classList.contains('open') ? '收起差异列表' : '展开差异列表';
+                btn.classList.toggle('active', panel.classList.contains('open'));
+            });
+
+            // 键盘快捷键 F7 / Shift+F7
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'F7') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        document.getElementById('diffPrevBtn').click();
+                    } else {
+                        document.getElementById('diffNextBtn').click();
+                    }
+                }
+            });
+        }
+
+        var debouncedUpdateDiffNav = debounce(function () {
+            if (autoCompare) updateDiffNav();
+        }, 500);
+
+        function setupDiffNavModelListeners() {
+            originalModel.onDidChangeContent(debouncedUpdateDiffNav);
+            modifiedModel.onDidChangeContent(debouncedUpdateDiffNav);
         }
 
         /* ========== 响应式布局 ========== */
