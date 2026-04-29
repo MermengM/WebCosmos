@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 配置生成器 — Accounts 批量生成</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0c0f;
+            --bg-panel: #111418;
+            --bg-elevated: #181c22;
+            --bg-input: #0d0f13;
+            --border-dim: #1e232a;
+            --border-mid: #2a3039;
+            --text-primary: #e2e6ec;
+            --text-secondary: #7b8494;
+            --text-muted: #4e5664;
+            --accent-amber: #f0a818;
+            --accent-amber-dim: rgba(240, 168, 24, 0.12);
+            --accent-amber-glow: rgba(240, 168, 24, 0.25);
+            --accent-teal: #00c896;
+            --accent-teal-dim: rgba(0, 200, 150, 0.10);
+            --accent-teal-glow: rgba(0, 200, 150, 0.20);
+            --danger: #e85545;
+            --danger-dim: rgba(232, 85, 69, 0.12);
+            --radius-xs: 3px;
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --font-ui: 'Space Grotesk', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-mono: 'DM Mono', 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            background-image:
+                radial-gradient(ellipse at 20% 20%, rgba(240, 168, 24, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(0, 200, 150, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 24px 24px;
+        }
+
+        /* ─── Top Bar ─────────────────────────── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 28px;
+            border-bottom: 1px solid var(--border-dim);
+            background: var(--bg-panel);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .topbar-mark {
+            width: 38px; height: 38px;
+            border-radius: var(--radius-xs);
+            background: linear-gradient(135deg, #1a1f2b 0%, #222832 100%);
+            border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 14px; font-weight: 500;
+            color: var(--accent-amber);
+            position: relative;
+        }
+        .topbar-mark::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 5px;
+            background: linear-gradient(135deg, var(--accent-amber), transparent 60%);
+            opacity: 0.3;
+            z-index: -1;
+        }
+        .topbar-title {
+            font-size: 1.05rem; font-weight: 700;
+            letter-spacing: -0.2px;
+            color: var(--text-primary);
+        }
+        .topbar-badge {
+            font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            background: var(--accent-amber-dim);
+            color: var(--accent-amber);
+            padding: 4px 10px;
+            border-radius: var(--radius-xs);
+            border: 1px solid rgba(240, 168, 24, 0.15);
+        }
+        .topbar-stats {
+            display: flex; gap: 20px; align-items: center;
+        }
+        .topbar-stat {
+            text-align: right;
+        }
+        .topbar-stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem; font-weight: 500;
+            color: var(--accent-teal);
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        .topbar-stat-label {
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+        .topbar-live {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.7rem; color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+        .topbar-live-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent-teal);
+            box-shadow: 0 0 8px var(--accent-teal-glow);
+            animation: livePulse 2s ease-in-out infinite;
+        }
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent-teal-glow); }
+            50% { opacity: 0.4; box-shadow: 0 0 2px var(--accent-teal-glow); }
+        }
+
+        /* ─── Main Grid ───────────────────────── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            background: var(--border-dim);
+            margin: 20px 24px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-dim);
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.02),
+                0 8px 40px rgba(0,0,0,0.4);
+        }
+        @media (max-width: 860px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                margin: 12px;
+            }
+            .topbar { padding: 12px 16px; }
+        }
+
+        /* ─── Panel ───────────────────────────── */
+        .panel {
+            background: var(--bg-panel);
+            display: flex; flex-direction: column;
+            min-height: 0;
+            min-width: 0;
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 18px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-dim);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .panel-header-left {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .panel-indicator {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .panel-indicator.keys { background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber-glow); }
+        .panel-indicator.output { background: var(--accent-teal); box-shadow: 0 0 6px var(--accent-teal-glow); }
+        .panel-title {
+            font-size: 0.82rem; font-weight: 600;
+            letter-spacing: -0.1px;
+            color: var(--text-primary);
+        }
+        .panel-meta {
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            background: var(--bg-input);
+            padding: 3px 10px;
+            border-radius: var(--radius-xs);
+            border: 1px solid var(--border-dim);
+            white-space: nowrap;
+        }
+        .panel-meta strong {
+            color: var(--accent-amber);
+            font-weight: 500;
+        }
+        .panel-body {
+            flex: 1; display: flex; flex-direction: column;
+            min-height: 0; overflow: hidden;
+        }
+        .panel-body textarea {
+            flex: 1; width: 100%;
+            border: none;
+            padding: 16px 18px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.7;
+            resize: none;
+            outline: none;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            tab-size: 2;
+            transition: var(--transition-fast);
+            letter-spacing: 0.1px;
+        }
+        .panel-body textarea::placeholder {
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.78rem;
+        }
+        .panel-body textarea:focus {
+            background: #0f1117;
+        }
+        .panel-body textarea.readonly {
+            cursor: default;
+            color: #c8cdd6;
+        }
+        .panel-body textarea.readonly:focus {
+            background: var(--bg-input);
+        }
+        .panel-actions {
+            display: flex; gap: 6px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border-dim);
+            background: var(--bg-elevated);
+            flex-shrink: 0;
+        }
+
+        /* ─── Buttons ─────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 7px 14px;
+            border-radius: var(--radius-xs);
+            font-size: 0.76rem; font-weight: 500;
+            cursor: pointer; border: 1px solid transparent;
+            transition: var(--transition-fast);
+            white-space: nowrap;
+            font-family: var(--font-ui);
+            letter-spacing: 0.2px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary {
+            background: var(--accent-teal);
+            color: #000;
+            border-color: var(--accent-teal);
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: #00dba5;
+            box-shadow: 0 0 20px var(--accent-teal-glow);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border-mid);
+        }
+        .btn-outline:hover {
+            background: var(--bg-elevated);
+            border-color: #3d4452;
+            color: var(--text-primary);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border-color: transparent;
+        }
+        .btn-ghost:hover {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+        }
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            gap: 4px;
+        }
+        .btn-accent {
+            background: var(--accent-amber-dim);
+            color: var(--accent-amber);
+            border-color: rgba(240, 168, 24, 0.2);
+        }
+        .btn-accent:hover {
+            background: rgba(240, 168, 24, 0.2);
+            border-color: rgba(240, 168, 24, 0.35);
+            box-shadow: 0 0 16px var(--accent-amber-glow);
+        }
+
+        /* ─── Template Section ────────────────── */
+        .template-section {
+            margin: 0 24px 22px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-dim);
+            background: var(--bg-panel);
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        @media (max-width: 860px) {
+            .template-section { margin: 0 12px 12px; }
+        }
+        .template-toggle {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 18px;
+            background: var(--bg-elevated);
+            cursor: pointer;
+            user-select: none;
+            transition: var(--transition-fast);
+            gap: 10px;
+        }
+        .template-toggle:hover {
+            background: #1d2129;
+        }
+        .template-toggle-left {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .template-toggle-icon {
+            font-size: 0.8rem; color: var(--accent-amber);
+            transition: transform 0.25s ease;
+        }
+        .template-toggle-label {
+            font-size: 0.82rem; font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.1px;
+        }
+        .template-toggle-hint {
+            font-size: 0.68rem; color: var(--text-muted);
+            font-weight: 400;
+        }
+        .template-toggle-arrow {
+            font-size: 0.65rem; color: var(--text-muted);
+            transition: transform 0.25s ease;
+            font-family: var(--font-mono);
+        }
+        .template-section.collapsed .template-toggle-arrow {
+            transform: rotate(-90deg);
+        }
+        .template-section.collapsed .template-toggle-icon {
+            transform: rotate(180deg);
+        }
+        .template-body {
+            padding: 14px;
+            transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.2s ease;
+            overflow: hidden;
+        }
+        .template-section.collapsed .template-body {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+        }
+        .template-body textarea {
+            width: 100%;
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.77rem;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            min-height: 200px;
+            tab-size: 2;
+            transition: var(--transition-fast);
+        }
+        .template-body textarea:focus {
+            border-color: var(--accent-amber);
+            box-shadow: 0 0 0 3px var(--accent-amber-dim);
+            background: #0f1117;
+        }
+        .template-body-actions {
+            margin-top: 10px;
+            display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+        }
+        .template-body-actions .spacer { flex: 1; }
+        .template-body-actions .hint {
+            font-size: 0.66rem; color: var(--text-muted);
+            letter-spacing: 0.2px;
+        }
+        .template-body-actions .hint strong {
+            color: var(--accent-amber);
+            font-weight: 500;
+        }
+
+        /* ─── Toast ───────────────────────────── */
+        .toast {
+            position: fixed; top: 18px; right: 18px;
+            padding: 11px 20px;
+            border-radius: var(--radius-xs);
+            font-size: 0.8rem; font-weight: 500;
+            font-family: var(--font-ui);
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(-8px) scale(0.97);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+            letter-spacing: 0.2px;
+            border: 1px solid;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .toast.success {
+            background: #0a1a14;
+            color: var(--accent-teal);
+            border-color: rgba(0, 200, 150, 0.3);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(0,200,150,0.08);
+        }
+        .toast.error {
+            background: #1a0e0c;
+            color: var(--danger);
+            border-color: rgba(232, 85, 69, 0.3);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        /* ─── Scrollbar ───────────────────────── */
+        textarea::-webkit-scrollbar { width: 5px; height: 5px; }
+        textarea::-webkit-scrollbar-track { background: transparent; }
+        textarea::-webkit-scrollbar-thumb { background: #2a3039; border-radius: 3px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: #3d4452; }
+        textarea::-webkit-scrollbar-corner { background: transparent; }
+
+        /* ─── Page Load Stagger ──────────────── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .topbar { animation: fadeSlideUp 0.5s ease both; }
+        .main-grid { animation: fadeSlideUp 0.5s 0.08s ease both; }
+        .template-section { animation: fadeSlideUp 0.5s 0.14s ease both; }
+
+        /* ─── Selection ───────────────────────── */
+        ::selection {
+            background: rgba(240, 168, 24, 0.3);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══ Top Bar ═══ -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-mark">{ }</div>
+            <div>
+                <div class="topbar-title">JSON 配置生成器</div>
+            </div>
+            <span class="topbar-badge">Bulk Accounts</span>
+        </div>
+        <div class="topbar-stats">
+            <div class="topbar-stat">
+                <div class="topbar-stat-value" id="accountCount">0</div>
+                <div class="topbar-stat-label">Accounts</div>
+            </div>
+            <div class="topbar-stat">
+                <div class="topbar-stat-value" id="proxyCount">1</div>
+                <div class="topbar-stat-label">Proxies</div>
+            </div>
+            <div class="topbar-live">
+                <span class="topbar-live-dot"></span> 实时
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══ Main Grid: Keys + Output ═══ -->
+    <div class="main-grid">
+        <!-- Left: Key Input -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="panel-indicator keys"></span>
+                    <span class="panel-title">API Keys</span>
+                </div>
+                <span class="panel-meta" id="keyCountLabel">已输入 <strong>0</strong> 个 key</span>
+            </div>
+            <div class="panel-body">
+                <textarea
+                    id="keysInput"
+                    placeholder="在此粘贴或输入 API Keys，每行一个…
+
+示例格式：
+sk-7a9757c30a7bf5f713a2a6937ca12f0b934b02cb261966f094176a998c5b6d9d
+sk-another-key-example-here
+sk-third-key-here
+
+每输入一个 key，将在 accounts 中生成一个对应的配置对象。"
+                >sk-7a9757c30a7bf5f713a2a6937ca12f0b934b02cb261966f094176a998c5b6d9d</textarea>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-outline btn-xs" onclick="clearKeys()">清空</button>
+                <button class="btn btn-accent btn-xs" onclick="loadDemoKeys()">加载示例</button>
+                <span style="flex:1;"></span>
+                <span style="font-size:0.66rem;color:var(--text-muted);align-self:center;">每行一个 Key</span>
+            </div>
+        </div>
+
+        <!-- Right: Generated JSON -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="panel-indicator output"></span>
+                    <span class="panel-title">生成的 JSON</span>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-primary btn-xs" onclick="copyJSON()">复制</button>
+                    <button class="btn btn-ghost btn-xs" onclick="downloadJSON()">下载</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <textarea id="outputJSON" class="readonly" readonly placeholder="生成后的 JSON 将显示在这里…"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Template Editor ═══ -->
+    <div class="template-section" id="templateCard">
+        <div class="template-toggle" onclick="toggleTemplate()" title="点击展开/折叠模板编辑区">
+            <div class="template-toggle-left">
+                <span class="template-toggle-icon">&#x2699;</span>
+                <span class="template-toggle-label">模板 JSON 编辑</span>
+                <span class="template-toggle-hint">自定义 accounts 结构、proxies、exported_at 等</span>
+            </div>
+            <span class="template-toggle-arrow" id="templateToggleText">&#x25B2; 折叠</span>
+        </div>
+        <div class="template-body" id="templateBody">
+            <textarea id="templateJSON" spellcheck="false"></textarea>
+            <div class="template-body-actions">
+                <button class="btn btn-outline btn-xs" onclick="resetTemplate()">恢复默认模板</button>
+                <button class="btn btn-accent btn-xs" onclick="updateExportedAt()">更新 exported_at</button>
+                <span class="spacer"></span>
+                <span class="hint">取 <strong>accounts[0]</strong> 作为结构模板，修改后右侧 JSON 自动重新生成</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Toast ═══ -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ═══ Scripts (preserved logic) ═══ -->
+    <script>
+        (function() {
+            // ============ DOM 元素 ============
+            const keysInput = document.getElementById('keysInput');
+            const outputJSON = document.getElementById('outputJSON');
+            const templateJSON = document.getElementById('templateJSON');
+            const keyCountLabel = document.getElementById('keyCountLabel');
+            const accountCountEl = document.getElementById('accountCount');
+            const proxyCountEl = document.getElementById('proxyCount');
+            const toast = document.getElementById('toast');
+            const templateBody = document.getElementById('templateBody');
+            const templateToggleText = document.getElementById('templateToggleText');
+            const templateCard = document.getElementById('templateCard');
+
+            // ============ 默认模板 ============
+            const DEFAULT_TEMPLATE = {
+                "exported_at": "2026-04-29T02:39:34Z",
+                "proxies": [{
+                    "proxy_key": "http|192.168.1.54|7890||",
+                    "name": "闪狐云手动SG10",
+                    "protocol": "http",
+                    "host": "192.168.1.54",
+                    "port": 7890,
+                    "status": "active"
+                }],
+                "accounts": [{
+                    "name": "sk-7a9757c30a7bf5f713a2a6937ca12f0b934b02cb261966f094176a998c5b6d9d",
+                    "platform": "openai",
+                    "type": "apikey",
+                    "credentials": {
+                        "api_key": "sk-7a9757c30a7bf5f713a2a6937ca12f0b934b02cb261966f094176a998c5b6d9d",
+                        "base_url": "https://subtp7eu3nc8.tokenclub.top",
+                        "model_mapping": {
+                            "gpt-5.4": "gpt-5.4",
+                            "gpt-5.4-mini": "gpt-5.4-mini",
+                            "gpt-5.5": "gpt-5.5",
+                            "gpt-image-2": "gpt-image-2"
+                        },
+                        "pool_mode": true,
+                        "pool_mode_retry_count": 0
+                    },
+                    "extra": {
+                        "openai_apikey_responses_websockets_v2_enabled": false,
+                        "openai_apikey_responses_websockets_v2_mode": "off"
+                    },
+                    "proxy_key": "http|192.168.1.54|7890||",
+                    "concurrency": 3,
+                    "priority": 1,
+                    "rate_multiplier": 1,
+                    "auto_pause_on_expired": true
+                }]
+            };
+
+            // ============ 状态 ============
+            let templateCollapsed = false;
+            let currentParsedTemplate = null;
+            let templateParseError = null;
+
+            // ============ 初始化 ============
+            function init() {
+                templateJSON.value = JSON.stringify(DEFAULT_TEMPLATE, null, 2);
+                parseTemplate();
+                generateJSON();
+                keysInput.addEventListener('input', generateJSON);
+                templateJSON.addEventListener('input', onTemplateChange);
+            }
+
+            // ============ 解析模板 ============
+            function parseTemplate() {
+                try {
+                    currentParsedTemplate = JSON.parse(templateJSON.value);
+                    templateParseError = null;
+                    if (!currentParsedTemplate.proxies || !Array.isArray(currentParsedTemplate.proxies)) {
+                        currentParsedTemplate.proxies = DEFAULT_TEMPLATE.proxies;
+                    }
+                    if (!currentParsedTemplate.accounts || !Array.isArray(currentParsedTemplate.accounts)) {
+                        currentParsedTemplate.accounts = DEFAULT_TEMPLATE.accounts;
+                    }
+                    if (!currentParsedTemplate.exported_at) {
+                        currentParsedTemplate.exported_at = DEFAULT_TEMPLATE.exported_at;
+                    }
+                    proxyCountEl.textContent = currentParsedTemplate.proxies.length;
+                } catch (e) {
+                    templateParseError = e.message;
+                    currentParsedTemplate = null;
+                    proxyCountEl.textContent = '?';
+                }
+            }
+
+            function onTemplateChange() {
+                parseTemplate();
+                generateJSON();
+            }
+
+            // ============ 获取模板数据 ============
+            function getAccountTemplate() {
+                if (!currentParsedTemplate) {
+                    return JSON.parse(JSON.stringify(DEFAULT_TEMPLATE.accounts[0]));
+                }
+                if (currentParsedTemplate.accounts.length > 0) {
+                    return JSON.parse(JSON.stringify(currentParsedTemplate.accounts[0]));
+                }
+                return JSON.parse(JSON.stringify(DEFAULT_TEMPLATE.accounts[0]));
+            }
+
+            function getProxies() {
+                if (!currentParsedTemplate || !currentParsedTemplate.proxies) {
+                    return JSON.parse(JSON.stringify(DEFAULT_TEMPLATE.proxies));
+                }
+                return JSON.parse(JSON.stringify(currentParsedTemplate.proxies));
+            }
+
+            function getExportedAt() {
+                if (!currentParsedTemplate || !currentParsedTemplate.exported_at) {
+                    return DEFAULT_TEMPLATE.exported_at;
+                }
+                return currentParsedTemplate.exported_at;
+            }
+
+            // ============ 核心：生成 JSON ============
+            function generateJSON() {
+                if (currentParsedTemplate === null && templateParseError === null) {
+                    parseTemplate();
+                }
+
+                const rawKeys = keysInput.value.split('\n');
+                const keys = rawKeys
+                    .map(k => k.trim())
+                    .filter(k => k.length > 0);
+
+                keyCountLabel.innerHTML = '已输入 <strong>' + keys.length + '</strong> 个 key';
+                accountCountEl.textContent = keys.length;
+
+                if (templateParseError) {
+                    outputJSON.value = '⚠ 模板 JSON 解析错误：\n' + templateParseError + '\n\n请检查底部模板 JSON 的语法。';
+                    outputJSON.style.color = '#e85545';
+                    return;
+                }
+                outputJSON.style.color = '';
+
+                const accountTemplate = getAccountTemplate();
+                const proxies = getProxies();
+                const exportedAt = getExportedAt();
+
+                const accounts = keys.map(key => {
+                    const account = JSON.parse(JSON.stringify(accountTemplate));
+                    account.name = key;
+                    if (!account.credentials) {
+                        account.credentials = {};
+                    }
+                    account.credentials.api_key = key;
+                    return account;
+                });
+
+                const result = {
+                    exported_at: exportedAt,
+                    proxies: proxies,
+                    accounts: accounts
+                };
+
+                outputJSON.value = JSON.stringify(result, null, 2);
+            }
+
+            // ============ 复制 JSON ============
+            function copyJSON() {
+                const text = outputJSON.value;
+                if (!text || text.trim().length === 0) {
+                    showToast('没有可复制的内容', 'error');
+                    return;
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('JSON 已复制到剪贴板', 'success');
+                    }).catch(() => {
+                        fallbackCopy(text);
+                    });
+                } else {
+                    fallbackCopy(text);
+                }
+            }
+
+            function fallbackCopy(text) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('JSON 已复制到剪贴板', 'success');
+                } catch (e) {
+                    showToast('复制失败，请手动选中复制', 'error');
+                }
+                document.body.removeChild(ta);
+            }
+
+            // ============ 下载 JSON ============
+            function downloadJSON() {
+                const text = outputJSON.value;
+                if (!text || text.trim().length === 0) {
+                    showToast('没有可下载的内容', 'error');
+                    return;
+                }
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const now = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.download = 'config-' + now + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('JSON 文件已下载', 'success');
+            }
+
+            // ============ 清空 Keys ============
+            function clearKeys() {
+                keysInput.value = '';
+                generateJSON();
+                showToast('Keys 已清空', 'success');
+            }
+
+            // ============ 加载示例 Keys ============
+            function loadDemoKeys() {
+                const demoKeys = [
+                    'sk-7a9757c30a7bf5f713a2a6937ca12f0b934b02cb261966f094176a998c5b6d9d',
+                    'sk-b8a0864d41b8c6f824b3b7048db23g1c045c13dc372a770g185b087ad9c7e0e',
+                    'sk-c9b1975e52c9d7g935c4c8159ec34h2d156d24ed483b881h296c198be0d8f1f',
+                    'sk-d0c2a86f63d0e8h046d5d9260fd45i3e267e35fe594c992i307d209cf1e9g2g',
+                    'sk-e1d3b97g74e1f9i157e6e0371ge56j4f378f46gf605d003j418e310dg2f0h3h'
+                ];
+                keysInput.value = demoKeys.join('\n');
+                generateJSON();
+                showToast('已加载 ' + demoKeys.length + ' 个示例 Key', 'success');
+            }
+
+            // ============ 重置模板 ============
+            function resetTemplate() {
+                templateJSON.value = JSON.stringify(DEFAULT_TEMPLATE, null, 2);
+                parseTemplate();
+                generateJSON();
+                showToast('模板已恢复为默认值', 'success');
+            }
+
+            // ============ 更新 exported_at ============
+            function updateExportedAt() {
+                try {
+                    const tmpl = JSON.parse(templateJSON.value);
+                    const now = new Date().toISOString();
+                    tmpl.exported_at = now;
+                    templateJSON.value = JSON.stringify(tmpl, null, 2);
+                    parseTemplate();
+                    generateJSON();
+                    showToast('exported_at 已更新为当前时间', 'success');
+                } catch (e) {
+                    showToast('模板 JSON 格式错误，无法更新', 'error');
+                }
+            }
+
+            // ============ 折叠/展开模板 ============
+            function toggleTemplate() {
+                templateCollapsed = !templateCollapsed;
+                if (templateCollapsed) {
+                    templateCard.classList.add('collapsed');
+                    templateToggleText.innerHTML = '&#x25B6; 展开';
+                } else {
+                    templateCard.classList.remove('collapsed');
+                    templateToggleText.innerHTML = '&#x25B2; 折叠';
+                }
+            }
+
+            // ============ Toast ============
+            let toastTimer;
+
+            function showToast(message, type) {
+                clearTimeout(toastTimer);
+                toast.textContent = message;
+                toast.className = 'toast ' + (type || '');
+                toast.offsetHeight;
+                toast.classList.add('show');
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2200);
+            }
+
+            // ============ 暴露全局函数 ============
+            window.copyJSON = copyJSON;
+            window.downloadJSON = downloadJSON;
+            window.clearKeys = clearKeys;
+            window.loadDemoKeys = loadDemoKeys;
+            window.resetTemplate = resetTemplate;
+            window.updateExportedAt = updateExportedAt;
+            window.toggleTemplate = toggleTemplate;
+
+            // ============ 启动 ============
+            init();
+        })();
+    </script>
+</body>
+</html>
