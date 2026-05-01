@@ -540,9 +540,9 @@
             <div class="toolbar-center">
                 <div class="diff-nav-bar">
                     <div class="nav-group">
-                        <button class="btn-nav" id="diffPrevBtn" title="上一个差异 (Shift+F7)">&#9650; 上一个</button>
+                        <button class="btn-nav" id="diffPrevBtn" title="上一个差异 (↑ / Shift+F7)">&#9650; 上一个</button>
                         <span class="nav-info" id="diffNavInfo">0 / 0</span>
-                        <button class="btn-nav" id="diffNextBtn" title="下一个差异 (F7)">&#9660; 下一个</button>
+                        <button class="btn-nav" id="diffNextBtn" title="下一个差异 (↓ / F7)">&#9660; 下一个</button>
                     </div>
                     <button class="diff-list-toggle" id="diffListToggle">展开差异列表</button>
                 </div>
@@ -1131,11 +1131,22 @@
                     btn.classList.toggle('active', panel.classList.contains('open'));
                 });
 
-                // 键盘快捷键 F7 / Shift+F7
+                // 键盘快捷键 F7 / Shift+F7 / 方向键
                 document.addEventListener('keydown', function (e) {
                     if (e.key === 'F7') {
                         e.preventDefault();
                         if (e.shiftKey) {
+                            document.getElementById('diffPrevBtn').click();
+                        } else {
+                            document.getElementById('diffNextBtn').click();
+                        }
+                    }
+                    // 方向键导航差异（编辑器聚焦时不拦截）
+                    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && diffEntries.length > 0) {
+                        var active = document.activeElement;
+                        if (active && active.closest && active.closest('.monaco-editor')) return;
+                        e.preventDefault();
+                        if (e.key === 'ArrowUp') {
                             document.getElementById('diffPrevBtn').click();
                         } else {
                             document.getElementById('diffNextBtn').click();

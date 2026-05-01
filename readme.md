@@ -11,3 +11,4 @@
 | [index.html](/index.html) | 主页 | 工具导航入口，通过配置控制工具显示/隐藏 |
 | [sub2api_to_cpa.html](/sub2api_to_cpa.html) | HTML 工具 | 将订阅账户 JSON 转为 Token JSON，支持批量 ZIP 下载 |
 | [text_compare.html](/text_compare.html) | HTML 工具 | 基于 Monaco Editor 的文本差异对比工具，支持文件拖放和多种语言高亮 |
+| [openai_chat.html](/openai_chat.html) | HTML 工具 | 在线对话页面，左侧本地历史会话，中间聊天区，支持 OpenAI 兼容接口 |
