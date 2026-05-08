@@ -7,7 +7,7 @@
     <title>文本对比</title>
     <!-- jsdiff 在 Monaco loader 之前加载，避免 AMD 模块冲突 -->
     <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script src="./assets/monaco-editor/0.45.0/min/vs/loader.js"></script>
     <style>
         * {
             margin: 0;
@@ -746,7 +746,7 @@
 
             function initMonaco() {
                 require.config({
-                    paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }
+                    paths: { vs: './assets/monaco-editor/0.45.0/min/vs' }
                 });
 
                 var loadTimer = setTimeout(function () {
