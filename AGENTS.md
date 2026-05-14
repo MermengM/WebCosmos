@@ -15,7 +15,7 @@ WebCosmos 是一个以**静态 HTML** 为主的小工具集合仓库。每个工
 
 ## 开发约定
 
-- **HTML 工具**：单文件架构，所有 CSS/JS 内联，外部依赖用 CDN。每个工具自包含，不拆分文件
+- **HTML 工具**：单文件架构，所有 CS4S/JS 内联，外部依赖用 CDN。每个工具自包含，不拆分文件
 - **新增工具流程**：
   1. 创建独立 HTML 文件
   2. 在 `index.html` 的 `tools` 数组中添加条目（设置 `name`、`description`、`file`、`visible`）

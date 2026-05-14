@@ -137,6 +137,22 @@
             white-space: nowrap;
         }
 
+        .toolbar-checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            padding: 5px 10px;
+        }
+
+        .toolbar-checkbox-label input {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            margin: 0;
+        }
+
         .btn:hover {
             background: #5b6abf;
             color: #fff;
@@ -548,6 +564,9 @@
                 </div>
             </div>
             <div class="toolbar-actions">
+                <label class="btn toolbar-checkbox-label" title="自动去除行首格式为 '数字:' 的行号">
+                    <input type="checkbox" id="autoStripLsCb"> 自动LS去行号
+                </label>
                 <button class="btn" id="clearAllBtn">清空</button>
                 <button class="btn" id="swapBtn">交换文本</button>
             </div>
@@ -738,7 +757,47 @@
                 updateDiffNav();
             }
 
+            var autoStripLs = localStorage.getItem('autoStripLs') === 'true';
+
+            function applyStripToModel(model) {
+                var lineCount = model.getLineCount();
+                var edits = [];
+                for (var i = 1; i <= lineCount; i++) {
+                    var lineContent = model.getLineContent(i);
+                    var m = lineContent.match(/^(\s*\d+\s*:)(.*)$/);
+                    if (m) {
+                        var prefixLen = m[1].length;
+                        edits.push({
+                            range: new monaco.Range(i, 1, i, prefixLen + 1),
+                            text: ''
+                        });
+                    }
+                }
+                if (edits.length > 0) {
+                    model.applyEdits(edits);
+                    return edits.length;
+                }
+                return 0;
+            }
+
+            var isStrippingLs = false;
+            function normalizeLsLineNumbers() {
+                if (!originalModel || !modifiedModel || isStrippingLs) return;
+                isStrippingLs = true;
+                var origChanged = applyStripToModel(originalModel);
+                var modChanged = applyStripToModel(modifiedModel);
+                isStrippingLs = false;
+
+                if (origChanged > 0 || modChanged > 0) {
+                    refreshComparison();
+                    showToast('LS去行号：左侧 ' + origChanged + ' 行，右侧 ' + modChanged + ' 行');
+                }
+            }
+
             var debouncedUpdateStats = debounce(function () {
+                if (autoStripLs) {
+                    normalizeLsLineNumbers();
+                }
                 updateStats();
             }, 400);
 
@@ -905,6 +964,16 @@
             /* ========== 工具栏事件 ========== */
 
             function setupToolbar() {
+                var autoStripLsCb = document.getElementById('autoStripLsCb');
+                autoStripLsCb.checked = autoStripLs;
+                autoStripLsCb.addEventListener('change', function (e) {
+                    autoStripLs = e.target.checked;
+                    localStorage.setItem('autoStripLs', autoStripLs);
+                    if (autoStripLs) {
+                        normalizeLsLineNumbers();
+                    }
+                });
+
                 document.getElementById('clearAllBtn').addEventListener('click', function () {
                     originalModel.setValue('');
                     modifiedModel.setValue('');
