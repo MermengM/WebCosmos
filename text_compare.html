@@ -567,6 +567,14 @@
                 <label class="btn toolbar-checkbox-label" title="自动去除行首格式为 '数字:' 的行号">
                     <input type="checkbox" id="autoStripLsCb"> 自动LS去行号
                 </label>
+                <div class="toolbar-btns" style="display:inline-flex; gap:0;">
+                    <button class="btn" id="oneClickReplaceBtn"
+                        style="border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0;"
+                        title="将左侧内容依规则替换并输出到右侧">右侧替换=></button>
+                    <button class="btn" id="replaceSettingsBtn"
+                        style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 8px; padding-right: 8px;"
+                        title="设置替换规则">⚙️</button>
+                </div>
                 <button class="btn" id="clearAllBtn">清空</button>
                 <button class="btn" id="swapBtn">交换文本</button>
             </div>
@@ -987,6 +995,41 @@
                     modifiedModel.setValue(o);
                     refreshComparison();
                     showToast('已交换左右内容');
+                });
+
+                // 一键替换配置
+                var replaceSearch = localStorage.getItem('replaceSearch') || '\\.step';
+                var replaceTarget = localStorage.getItem('replaceTarget');
+                if (replaceTarget === null) replaceTarget = '.obj';
+
+                document.getElementById('oneClickReplaceBtn').addEventListener('click', function () {
+                    var o = originalModel.getValue();
+                    if (!o) {
+                        showToast('左侧无内容');
+                        return;
+                    }
+                    try {
+                        var regex = new RegExp(replaceSearch, 'gi');
+                        var m = o.replace(regex, replaceTarget);
+                        modifiedModel.setValue(m);
+                        refreshComparison();
+                        showToast('一键替换完成');
+                    } catch (e) {
+                        showToast('替换失败，正则格式可能有误');
+                    }
+                });
+
+                document.getElementById('replaceSettingsBtn').addEventListener('click', function () {
+                    var newSearch = prompt('请输入要查找的内容 (支持正则，默认全局且忽略大小写)', replaceSearch);
+                    if (newSearch === null) return;
+                    var newTarget = prompt('请输入要替换为的内容', replaceTarget);
+                    if (newTarget === null) return;
+
+                    replaceSearch = newSearch;
+                    replaceTarget = newTarget;
+                    localStorage.setItem('replaceSearch', replaceSearch);
+                    localStorage.setItem('replaceTarget', replaceTarget);
+                    showToast('替换规则已保存');
                 });
             }
 
