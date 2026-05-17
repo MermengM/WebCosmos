@@ -1153,15 +1153,15 @@
                     targetInput.value = replaceTarget;
                     replaceModal.classList.add('open');
                 });
-                
+
                 function closeReplaceModal() {
                     replaceModal.classList.remove('open');
                 }
-                
+
                 document.getElementById('closeReplaceModal').addEventListener('click', closeReplaceModal);
                 document.getElementById('cancelReplaceBtn').addEventListener('click', closeReplaceModal);
-                
-                document.getElementById('saveReplaceBtn').addEventListener('click', function() {
+
+                document.getElementById('saveReplaceBtn').addEventListener('click', function () {
                     replaceSearch = searchInput.value;
                     replaceTarget = targetInput.value;
                     localStorage.setItem('replaceSearch', replaceSearch);
