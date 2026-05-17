@@ -533,6 +533,106 @@
                 border-bottom: 1px solid #e8e8e8;
             }
         }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 8px;
+            width: 360px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #475569;
+        }
+
+        .modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .form-group input:focus {
+            border-color: #5b6abf;
+            box-shadow: 0 0 0 2px rgba(91, 106, 191, 0.1);
+        }
+
+        .form-group .hint {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
     </style>
 </head>
 
@@ -613,6 +713,31 @@
         <div class="loading-state">
             <div class="spinner"></div>
             <span>正在加载编辑器...</span>
+        </div>
+    </div>
+
+    <!-- 设置替换规则弹窗 -->
+    <div class="modal-overlay" id="replaceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>替换规则设置</h3>
+                <button class="modal-close" id="closeReplaceModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>查找内容</label>
+                    <input type="text" id="replaceSearchInput" placeholder="例如：\.step">
+                    <div class="hint">支持正则表达式，默认全局且忽略大小写查找</div>
+                </div>
+                <div class="form-group">
+                    <label>替换为</label>
+                    <input type="text" id="replaceTargetInput" placeholder="例如：.obj">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelReplaceBtn">取消</button>
+                <button class="btn btn-primary" id="saveReplaceBtn">保存</button>
+            </div>
         </div>
     </div>
 
@@ -1019,17 +1144,30 @@
                     }
                 });
 
-                document.getElementById('replaceSettingsBtn').addEventListener('click', function () {
-                    var newSearch = prompt('请输入要查找的内容 (支持正则，默认全局且忽略大小写)', replaceSearch);
-                    if (newSearch === null) return;
-                    var newTarget = prompt('请输入要替换为的内容', replaceTarget);
-                    if (newTarget === null) return;
+                var replaceModal = document.getElementById('replaceModal');
+                var searchInput = document.getElementById('replaceSearchInput');
+                var targetInput = document.getElementById('replaceTargetInput');
 
-                    replaceSearch = newSearch;
-                    replaceTarget = newTarget;
+                document.getElementById('replaceSettingsBtn').addEventListener('click', function () {
+                    searchInput.value = replaceSearch;
+                    targetInput.value = replaceTarget;
+                    replaceModal.classList.add('open');
+                });
+                
+                function closeReplaceModal() {
+                    replaceModal.classList.remove('open');
+                }
+                
+                document.getElementById('closeReplaceModal').addEventListener('click', closeReplaceModal);
+                document.getElementById('cancelReplaceBtn').addEventListener('click', closeReplaceModal);
+                
+                document.getElementById('saveReplaceBtn').addEventListener('click', function() {
+                    replaceSearch = searchInput.value;
+                    replaceTarget = targetInput.value;
                     localStorage.setItem('replaceSearch', replaceSearch);
                     localStorage.setItem('replaceTarget', replaceTarget);
                     showToast('替换规则已保存');
+                    closeReplaceModal();
                 });
             }
 
