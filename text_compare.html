@@ -958,6 +958,11 @@
                 var container = document.getElementById('editorContainer');
                 container.innerHTML = '';
 
+                monaco.editor.addKeybindingRule({
+                    keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyK,
+                    command: '-editor.action.deleteLines'
+                });
+
                 diffEditor = monaco.editor.createDiffEditor(container, {
                     renderSideBySide: true,
                     originalEditable: true,
